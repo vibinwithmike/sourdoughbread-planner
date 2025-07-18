@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sourdough Baking Planner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .form-container {
+            padding: 40px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .generate-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            width: 100%;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results {
+            margin-top: 40px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            display: none;
+        }
+
+        .results h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .ingredients-section,
+        .timeline-section {
+            margin-bottom: 30px;
+        }
+
+        .ingredients-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .ingredient-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .ingredient-card h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .ingredient-card .amount {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .day-section {
+            margin-bottom: 30px;
+        }
+
+        .day-header {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+
+        .timeline-steps {
+            display: grid;
+            gap: 15px;
+        }
+
+        .timeline-step {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .timeline-step .time {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .timeline-step .description {
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading:after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .tips {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .tips h3 {
+            color: #2c5282;
+            margin-bottom: 15px;
+        }
+
+        .tips ul {
+            margin-left: 20px;
+            line-height: 1.6;
+        }
+
+        .tips li {
+            margin-bottom: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .form-container {
+                padding: 20px;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍞 Sourdough Baking Planner</h1>
+            <p>Generate your perfect sourdough schedule with precise timing and ingredient calculations</p>
+        </div>
+
+        <div class="form-container">
+            <form id="plannerForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="starter_amount">Starter Amount (grams)</label>
+                        <input type="number" id="starter_amount" name="starter_amount" value="100" min="10" max="1000" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="start_time">Start Time</label>
+                        <input type="text" id="start_time" name="start_time" value="8:00 AM" placeholder="e.g., 8:00 AM" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="hydration">Hydration (%)</label>
+                        <input type="number" id="hydration" name="hydration" value="70" min="60" max="85" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flour_type">Flour Type</label>
+                        <select id="flour_type" name="flour_type">
+                            <option value="bread flour">Bread Flour</option>
+                            <option value="all-purpose flour">All-Purpose Flour</option>
+                            <option value="whole wheat flour">Whole Wheat Flour</option>
+                            <option value="rye flour">Rye Flour</option>
+                            <option value="mixed flour">Mixed Flour</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Additional Notes (optional)</label>
+                    <textarea id="notes" name="notes" placeholder="Any special instructions or modifications..."></textarea>
+                </div>
+
+                <button type="submit" class="generate-btn">Generate Baking Schedule</button>
+            </form>
+
+            <div id="loading" class="loading" style="display: none;">
+                Generating your baking schedule...
+            </div>
+
+            <div id="error" class="error" style="display: none;"></div>
+
+            <div id="results" class="results">
+                <h2>🍞 Your Sourdough Baking Plan</h2>
+                
+                <div class="ingredients-section">
+                    <h3>📋 Ingredients</h3>
+                    <div id="ingredients-grid" class="ingredients-grid"></div>
+                </div>
+
+                <div class="timeline-section">
+                    <h3>⏰ Timeline</h3>
+                    <div id="timeline-container"></div>
+                </div>
+
+                <div class="tips">
+                    <h3>💡 Tips for Success</h3>
+                    <ul>
+                        <li>Water temperature should be room temperature (70-75°F)</li>
+                        <li>Use wet hands when handling dough to prevent sticking</li>
+                        <li>Dough should increase by 50-70% during bulk fermentation</li>
+                        <li>Poke test: Gently poke dough - it should spring back slowly</li>
+                        <li>Score quickly and confidently with a sharp blade</li>
+                        <li>Listen for hollow sound when tapping bottom of baked loaf</li>
+                        <li>Internal temperature should reach 205-210°F when done</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('plannerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('results').style.display = 'none';
+            
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResults(result);
+                } else {
+                    showError(result.error);
+                }
+            } catch (error) {
+                showError('Failed to generate schedule. Please try again.');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+
+        function displayResults(data) {
+            // Display ingredients
+            const ingredientsGrid = document.getElementById('ingredients-grid');
+            ingredientsGrid.innerHTML = `
+                <div class="ingredient-card">
+                    <h4>Starter</h4>
+                    <div class="amount">${data.ingredients.starter_amount}g</div>
+                </div>
+                <div class="ingredient-card">
+                    <h4>Feeding Flour</h4>
+                    <div class="amount">${data.ingredients.starter_flour}g</div>
+                </div>
+                <div class="ingredient-card">
+                    <h4>Feeding Water</h4>
+                    <div class="amount">${data.ingredients.starter_water}g</div>
+                </div>
+                <div class="ingredient-card">
+                    <h4>Main Flour</h4>
+                    <div class="amount">${data.ingredients.main_flour}g</div>
+                </div>
+                <div class="ingredient-card">
+                    <h4>Main Water</h4>
+                    <div class="amount">${data.ingredients.main_water}g</div>
+                </div>
+                <div class="ingredient-card">
+                    <h4>Salt</h4>
+                    <div class="amount">${data.ingredients.salt}g</div>
+                </div>
+            `;
+
+            // Display timeline
+            const timelineContainer = document.getElementById('timeline-container');
+            timelineContainer.innerHTML = '';
+
+            data.days.forEach((day, index) => {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'day-section';
+                
+                dayDiv.innerHTML = `
+                    <div class="day-header">📅 ${day.date} (Day ${index + 1})</div>
+                    <div class="timeline-steps">
+                        ${day.steps.map(step => `
+                            <div class="timeline-step">
+                                <div class="time">${step.time} - ${formatStepName(step.step)}</div>
+                                <div class="description">${getStepDescription(step.step, data.ingredients)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                timelineContainer.appendChild(dayDiv);
+            });
+
+            document.getElementById('results').style.display = 'block';
+        }
+
+        function formatStepName(step) {
+            const stepNames = {
+                'feed_starter': 'Feed Starter',
+                'peak': 'Peak & Autolyse',
+                'autolyse': 'Autolyse',
+                'fold_1': 'Fold 1',
+                'fold_2': 'Fold 2',
+                'fold_3': 'Fold 3',
+                'fold_4': 'Fold 4 (Final)',
+                'bulk_fermentation': 'Bulk Fermentation',
+                'pre_shape': 'Pre-shape',
+                'final_shape': 'Final Shape',
+                'cold_proof': 'Cold Proof',
+                'preheat': 'Preheat Oven',
+                'bake': 'Score & Bake',
+                'cool': 'Cool'
+            };
+            return stepNames[step] || step;
+        }
+
+        function getStepDescription(step, ingredients) {
+            const descriptions = {
+                'feed_starter': `Mix ${ingredients.starter_amount}g starter + ${ingredients.starter_flour}g flour + ${ingredients.starter_water}g water. Cover and let rise until doubled.`,
+                'peak': `Starter should be at peak (doubled, bubbly). Mix ${ingredients.main_flour}g flour + ${ingredients.main_water}g water + ${ingredients.salt}g salt. Knead for 3-5 minutes, then let rest.`,
+                'fold_1': `Add ${ingredients.starter_amount}g active starter to autolyse. Mix until combined, perform first set of folds.`,
+                'fold_2': 'Perform second set of folds with wet hands.',
+                'fold_3': 'Perform third set of folds.',
+                'fold_4': 'Perform final set of folds.',
+                'bulk_fermentation': 'Cover dough and let ferment on counter for 12 hours. Dough should increase by 50-70%.',
+                'pre_shape': 'Turn dough onto lightly floured surface. Shape into loose ball, let rest 30 minutes uncovered.',
+                'final_shape': 'Shape into boule or batard. Place seam-side up in banneton. Dust with flour, cover.',
+                'cold_proof': 'Place in refrigerator for 8-12 hours. Can bake anytime after 8 hours.',
+                'preheat': 'Place Dutch oven in oven, preheat to 475°F (245°C) for 30 minutes.',
+                'bake': 'Turn dough onto parchment, score with razor. Bake covered 20-30 min, then uncovered 15-25 min until golden.',
+                'cool': 'Remove from oven, cool completely before slicing (2+ hours).'
+            };
+            return descriptions[step] || '';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
