@@ -3,6 +3,7 @@ from flask import Flask, render_template, request, jsonify
 from datetime import datetime, timedelta
 import os
 
+# Create Flask app
 app = Flask(__name__)
 
 class SourdoughPlanner:
@@ -59,6 +60,10 @@ class SourdoughPlanner:
         self.main_water_ratio = 35/12  # Additional water ratio  
         self.salt_ratio = 1/12         # Salt ratio
 
+    def get_feeding_ratios(self):
+        """Return available feeding ratios for frontend"""
+        return {k: v['description'] for k, v in self.feeding_ratios.items()}
+
     def calculate_feeding_from_existing(self, existing_starter_amount, feeding_ratio):
         """Calculate feeding amounts starting from existing starter amount"""
         ratio_info = self.feeding_ratios[feeding_ratio]
@@ -78,39 +83,7 @@ class SourdoughPlanner:
             'total_after_feeding': round(total_after_feeding, 1),
             'peak_hours': ratio_info['peak_hours']
         }
-    
-    def calculate_active_starter_needed(self, existing_starter_amount, feeding_ratio):
-        """Calculate how much active starter we'll have after feeding"""
-        feeding_info = self.calculate_feeding_from_existing(existing_starter_amount, feeding_ratio)
-        return feeding_info['total_after_feeding']
-    
-    def parse_time(self, time_str):
-        """Parse time string in 12-hour format"""
-        try:
-            time_str = time_str.strip().upper()
-            
-            if not ('AM' in time_str or 'PM' in time_str):
-                hour = int(time_str.split(':')[0])
-                if 6 <= hour <= 11:
-                    time_str += ' AM'
-                else:
-                    time_str += ' PM'
-            
-            return datetime.strptime(time_str, '%I:%M %p').time()
-        except ValueError:
-            try:
-                return datetime.strptime(time_str, '%I %p').time()
-            except ValueError:
-                raise ValueError(f"Invalid time format: {time_str}")
-    
-    def format_time(self, dt):
-        """Format datetime to 12-hour format"""
-        return dt.strftime('%I:%M %p').lstrip('0')
-    
-    def format_date_time(self, dt):
-        """Format datetime with date and time"""
-        return dt.strftime('%A, %B %d - %I:%M %p').replace(' 0', ' ')
-    
+
     def calculate_ingredients(self, existing_starter_amount, feeding_ratio, hydration=70):
         """Calculate all ingredient amounts based on existing starter amount and feeding ratio"""
         # Calculate starter feeding
@@ -153,7 +126,26 @@ class SourdoughPlanner:
             'total_water': round(total_water, 1),
             'final_hydration': round((total_water / total_flour) * 100, 1)
         }
-    
+
+    def parse_time(self, time_str):
+        """Parse time string in 12-hour format"""
+        try:
+            time_str = time_str.strip().upper()
+            
+            if not ('AM' in time_str or 'PM' in time_str):
+                hour = int(time_str.split(':')[0])
+                if 6 <= hour <= 11:
+                    time_str += ' AM'
+                else:
+                    time_str += ' PM'
+            
+            return datetime.strptime(time_str, '%I:%M %p').time()
+        except ValueError:
+            try:
+                return datetime.strptime(time_str, '%I %p').time()
+            except ValueError:
+                raise ValueError(f"Invalid time format: {time_str}")
+
     def calculate_timeline(self, start_time_str, feeding_ratio, start_date=None):
         """Calculate complete timeline based on feeding ratio"""
         if start_date is None:
@@ -193,11 +185,7 @@ class SourdoughPlanner:
         timeline['cooling_done'] = timeline['bake'] + timedelta(hours=2)
         
         return timeline
-    
-    def get_feeding_ratios(self):
-        """Return available feeding ratios for frontend"""
-        return {k: v['description'] for k, v in self.feeding_ratios.items()}
-    
+
     def generate_schedule_data(self, existing_starter_amount, start_time_str, feeding_ratio='1:5:5', 
                              hydration=70, flour_type="bread flour", notes=None):
         """Generate schedule data for web display"""
@@ -226,9 +214,6 @@ class SourdoughPlanner:
             'notes': notes,
             'feeding_ratio': feeding_ratio
         }
-
-# Initialize planner
-planner = SourdoughPlanner()
 
 # Helper functions for formatting
 def format_step_name(step):
@@ -279,17 +264,41 @@ def get_step_description(step):
     }
     return descriptions.get(step, '')
 
+# Routes
 @app.route('/')
 def index():
-    # Pass feeding ratios to template
-    feeding_ratios = planner.get_feeding_ratios()
-    return render_template('index.html', feeding_ratios=feeding_ratios)
+    try:
+        planner = SourdoughPlanner()
+        feeding_ratios = planner.get_feeding_ratios()
+        return render_template('index.html', feeding_ratios=feeding_ratios)
+    except Exception as e:
+        return f"Error: {str(e)}", 500
+
+@app.route('/health')
+def health_check():
+    return jsonify({'status': 'healthy'})
+
+@app.route('/test')
+def test_route():
+    return "Flask is working! This is a test route."
+
+@app.route('/debug')
+def debug():
+    import os
+    return jsonify({
+        'current_directory': os.getcwd(),
+        'files_in_root': os.listdir('.'),
+        'templates_exists': os.path.exists('templates'),
+        'index_exists': os.path.exists('templates/index.html'),
+        'flask_working': True
+    })
 
 @app.route('/generate', methods=['POST'])
 def generate_schedule():
     try:
+        planner = SourdoughPlanner()
         data = request.json
-        existing_starter_amount = float(data.get('existing_starter_amount', 50))  # Changed from active_starter_amount
+        existing_starter_amount = float(data.get('existing_starter_amount', 50))
         start_time = data.get('start_time', '8:00 AM')
         feeding_ratio = data.get('feeding_ratio', '1:5:5')
         hydration = int(data.get('hydration', 70))
@@ -337,13 +346,13 @@ def generate_schedule():
 
 @app.route('/ratios')
 def get_ratios():
-    """API endpoint to get available feeding ratios"""
-    return jsonify(planner.get_feeding_ratios())
+    try:
+        planner = SourdoughPlanner()
+        return jsonify(planner.get_feeding_ratios())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-@app.route('/health')
-def health_check():
-    return jsonify({'status': 'healthy'})
-
+# CRITICAL: This is what gunicorn looks for
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
