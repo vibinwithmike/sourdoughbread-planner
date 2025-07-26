@@ -229,6 +229,55 @@ def index():
     feeding_ratios = planner.get_feeding_ratios()
     return render_template('index.html', feeding_ratios=feeding_ratios)
 
+# Helper functions for formatting
+def format_step_name(step):
+    """Format step names for display"""
+    step_names = {
+        'feed_starter': 'Feed Starter',
+        'peak_ready': 'Starter at Peak',
+        'mix_dough': 'Mix Dough',
+        'autolyse_end': 'End Autolyse',
+        'fold_1': 'Stretch & Fold #1',
+        'fold_2': 'Stretch & Fold #2', 
+        'fold_3': 'Stretch & Fold #3',
+        'fold_4': 'Stretch & Fold #4',
+        'bulk_fermentation_start': 'Begin Bulk Fermentation',
+        'bulk_fermentation_end': 'End Bulk Fermentation',
+        'pre_shape': 'Pre-shape Dough',
+        'bench_rest_end': 'End Bench Rest',
+        'final_shape': 'Final Shape',
+        'cold_proof_start': 'Start Cold Proof',
+        'ready_to_bake': 'Ready to Bake',
+        'preheat_oven': 'Preheat Oven',
+        'bake': 'Bake Bread',
+        'cooling_done': 'Cooling Complete'
+    }
+    return step_names.get(step, step.replace('_', ' ').title())
+
+def get_step_description(step):
+    """Get description for each step"""
+    descriptions = {
+        'feed_starter': 'Feed your starter with the calculated amounts',
+        'peak_ready': 'Starter should be bubbly and at peak activity',
+        'mix_dough': 'Mix water, starter, salt, then add flour',
+        'autolyse_end': 'Let mixed dough rest covered',
+        'fold_1': 'First set of stretch and folds',
+        'fold_2': 'Second set of stretch and folds',
+        'fold_3': 'Third set of stretch and folds', 
+        'fold_4': 'Final set of stretch and folds',
+        'bulk_fermentation_start': 'Cover and let ferment overnight',
+        'bulk_fermentation_end': 'Dough should be doubled or more',
+        'pre_shape': 'Shape into loose ball, let rest',
+        'bench_rest_end': 'Dough has relaxed and spread slightly',
+        'final_shape': 'Shape into final form and place in banneton',
+        'cold_proof_start': 'Place in fridge for cold retard',
+        'ready_to_bake': 'Remove from fridge, preheat Dutch oven',
+        'preheat_oven': 'Heat oven and Dutch oven to 450°F',
+        'bake': 'Score and bake: 30 min covered, 15 min uncovered',
+        'cooling_done': 'Bread is cool enough to slice'
+    }
+    return descriptions.get(step, '')
+
 @app.route('/generate', methods=['POST'])
 def generate_schedule():
     try:
@@ -258,10 +307,10 @@ def generate_schedule():
                     'date': date.strftime('%A, %B %d'),
                     'steps': [
                         {
-                            'step': self.format_step_name(step),
+                            'step': format_step_name(step),
                             'time': dt.strftime('%I:%M %p').lstrip('0'),
                             'datetime': dt.isoformat(),
-                            'description': self.get_step_description(step)
+                            'description': get_step_description(step)
                         }
                         for step, dt in day_steps
                     ]
@@ -278,54 +327,6 @@ def generate_schedule():
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
-
-    def format_step_name(self, step):
-        """Format step names for display"""
-        step_names = {
-            'feed_starter': 'Feed Starter',
-            'peak_ready': 'Starter at Peak',
-            'mix_dough': 'Mix Dough',
-            'autolyse_end': 'End Autolyse',
-            'fold_1': 'Stretch & Fold #1',
-            'fold_2': 'Stretch & Fold #2', 
-            'fold_3': 'Stretch & Fold #3',
-            'fold_4': 'Stretch & Fold #4',
-            'bulk_fermentation_start': 'Begin Bulk Fermentation',
-            'bulk_fermentation_end': 'End Bulk Fermentation',
-            'pre_shape': 'Pre-shape Dough',
-            'bench_rest_end': 'End Bench Rest',
-            'final_shape': 'Final Shape',
-            'cold_proof_start': 'Start Cold Proof',
-            'ready_to_bake': 'Ready to Bake',
-            'preheat_oven': 'Preheat Oven',
-            'bake': 'Bake Bread',
-            'cooling_done': 'Cooling Complete'
-        }
-        return step_names.get(step, step.replace('_', ' ').title())
-    
-    def get_step_description(self, step):
-        """Get description for each step"""
-        descriptions = {
-            'feed_starter': 'Feed your starter with the calculated amounts',
-            'peak_ready': 'Starter should be bubbly and at peak activity',
-            'mix_dough': 'Mix water, starter, salt, then add flour',
-            'autolyse_end': 'Let mixed dough rest covered',
-            'fold_1': 'First set of stretch and folds',
-            'fold_2': 'Second set of stretch and folds',
-            'fold_3': 'Third set of stretch and folds', 
-            'fold_4': 'Final set of stretch and folds',
-            'bulk_fermentation_start': 'Cover and let ferment overnight',
-            'bulk_fermentation_end': 'Dough should be doubled or more',
-            'pre_shape': 'Shape into loose ball, let rest',
-            'bench_rest_end': 'Dough has relaxed and spread slightly',
-            'final_shape': 'Shape into final form and place in banneton',
-            'cold_proof_start': 'Place in fridge for cold retard',
-            'ready_to_bake': 'Remove from fridge, preheat Dutch oven',
-            'preheat_oven': 'Heat oven and Dutch oven to 450°F',
-            'bake': 'Score and bake: 30 min covered, 15 min uncovered',
-            'cooling_done': 'Bread is cool enough to slice'
-        }
-        return descriptions.get(step, '')
 
 @app.route('/ratios')
 def get_ratios():
