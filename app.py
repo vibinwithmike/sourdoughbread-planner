@@ -1,349 +1,199 @@
-# app.py
+import os
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime, timedelta
-import os
 
 app = Flask(__name__)
 
 class SourdoughPlanner:
-    def __init__(self):
-        # Define feeding ratios and their characteristics
-        self.feeding_ratios = {
-            '1:1:1': {
-                'starter_parts': 1,
-                'flour_parts': 1,
-                'water_parts': 1,
-                'peak_hours': 5,
-                'description': 'Fast (4-6 hours) - Same day baking'
+    def __init__(self, starter_amount, start_time, hydration=70, flour_type="bread flour"):
+        self.starter_amount = starter_amount
+        self.start_time = start_time
+        self.hydration = hydration
+        self.flour_type = flour_type
+        self.schedule = []
+        
+    def calculate_ingredients(self):
+        # Starter feeding ratios (1:5:5 - starter:flour:water)
+        feeding_flour = self.starter_amount * 5
+        feeding_water = self.starter_amount * 5
+        
+        # Main dough ratios (1:5:3.5:0.1 - starter:flour:water:salt)
+        total_flour = self.starter_amount * 5
+        total_water = (total_flour * self.hydration) / 100
+        salt = total_flour * 0.02  # 2% of flour weight
+        
+        return {
+            'feeding': {
+                'existing_starter': self.starter_amount,
+                'flour': feeding_flour,
+                'water': feeding_water
             },
-            '1:2:2': {
-                'starter_parts': 1,
-                'flour_parts': 2,
-                'water_parts': 2,
-                'peak_hours': 7,
-                'description': 'Moderate (6-8 hours) - Balanced timing'
-            },
-            '1:3:3': {
-                'starter_parts': 1,
-                'flour_parts': 3,
-                'water_parts': 3,
-                'peak_hours': 9,
-                'description': 'Standard (8-10 hours) - Daily maintenance'
-            },
-            '1:4:4': {
-                'starter_parts': 1,
-                'flour_parts': 4,
-                'water_parts': 4,
-                'peak_hours': 11,
-                'description': 'Professional (10-12 hours) - Most common'
-            },
-            '1:5:5': {
-                'starter_parts': 1,
-                'flour_parts': 5,
-                'water_parts': 5,
-                'peak_hours': 12,
-                'description': 'Overnight (12-14 hours) - Work schedule'
-            },
-            '1:10:10': {
-                'starter_parts': 1,
-                'flour_parts': 10,
-                'water_parts': 10,
-                'peak_hours': 20,
-                'description': 'Extended (16-24 hours) - Weekend baking'
+            'dough': {
+                'fed_starter': self.starter_amount * 11,  # After feeding
+                'flour': total_flour,
+                'water': total_water,
+                'salt': salt
             }
         }
-        
-        # Standard recipe ratios (based on active starter amount)
-        self.standard_active_starter = 120  # Base amount for recipe calculations
-        self.main_flour_ratio = 50/12  # Additional flour ratio
-        self.main_water_ratio = 35/12  # Additional water ratio  
-        self.salt_ratio = 1/12         # Salt ratio
-
-    def calculate_feeding_from_existing(self, existing_starter_amount, feeding_ratio):
-        """Calculate feeding amounts starting from existing starter amount"""
-        ratio_info = self.feeding_ratios[feeding_ratio]
-        
-        # Use existing starter amount as the starter portion
-        starter_used = existing_starter_amount
-        flour_needed = existing_starter_amount * ratio_info['flour_parts']
-        water_needed = existing_starter_amount * ratio_info['water_parts']
-        
-        # Calculate total after feeding
-        total_after_feeding = starter_used + flour_needed + water_needed
-        
-        return {
-            'existing_starter_used': round(starter_used, 1),
-            'flour_to_add': round(flour_needed, 1),
-            'water_to_add': round(water_needed, 1),
-            'total_after_feeding': round(total_after_feeding, 1),
-            'peak_hours': ratio_info['peak_hours']
-        }
     
-    def calculate_active_starter_needed(self, existing_starter_amount, feeding_ratio):
-        """Calculate how much active starter we'll have after feeding"""
-        feeding_info = self.calculate_feeding_from_existing(existing_starter_amount, feeding_ratio)
-        return feeding_info['total_after_feeding']
-    
-    def parse_time(self, time_str):
-        """Parse time string in 12-hour format"""
-        try:
-            time_str = time_str.strip().upper()
-            
-            if not ('AM' in time_str or 'PM' in time_str):
-                hour = int(time_str.split(':')[0])
-                if 6 <= hour <= 11:
-                    time_str += ' AM'
-                else:
-                    time_str += ' PM'
-            
-            return datetime.strptime(time_str, '%I:%M %p').time()
-        except ValueError:
-            try:
-                return datetime.strptime(time_str, '%I %p').time()
-            except ValueError:
-                raise ValueError(f"Invalid time format: {time_str}")
-    
-    def format_time(self, dt):
-        """Format datetime to 12-hour format"""
-        return dt.strftime('%I:%M %p').lstrip('0')
-    
-    def format_date_time(self, dt):
-        """Format datetime with date and time"""
-        return dt.strftime('%A, %B %d - %I:%M %p').replace(' 0', ' ')
-    
-    def calculate_ingredients(self, existing_starter_amount, feeding_ratio, hydration=70):
-        """Calculate all ingredient amounts based on existing starter amount and feeding ratio"""
-        # Calculate starter feeding
-        starter_feeding = self.calculate_feeding_from_existing(existing_starter_amount, feeding_ratio)
-        active_starter_amount = starter_feeding['total_after_feeding']
+    def generate_schedule(self):
+        ingredients = self.calculate_ingredients()
         
-        # Use ALL the active starter in the bread recipe
-        starter_for_bread = active_starter_amount
+        # Parse start time
+        start_dt = datetime.strptime(self.start_time, "%I:%M %p")
+        base_date = datetime.now().replace(hour=start_dt.hour, minute=start_dt.minute, second=0, microsecond=0)
         
-        # Calculate main dough ingredients based on all active starter
-        main_flour = starter_for_bread * self.main_flour_ratio
-        main_water = starter_for_bread * self.main_water_ratio
+        # Day 1 - Starter preparation
+        day1_morning = base_date
+        day1_evening = day1_morning + timedelta(hours=12)
         
-        # Adjust water for different hydration levels
-        if hydration != 70:
-            # Calculate current hydration and adjust
-            total_flour = starter_feeding['flour_to_add'] + main_flour
-            current_water = starter_feeding['water_to_add'] + main_water
-            current_hydration = (current_water / total_flour) * 100
-            
-            # Adjust main water to achieve target hydration
-            target_water = (total_flour * hydration) / 100
-            water_adjustment = target_water - current_water
-            main_water += water_adjustment
+        # Day 2 - Dough preparation and baking
+        day2_morning = day1_morning + timedelta(days=1)
+        day2_autolyse = day2_morning + timedelta(hours=1)
+        day2_mix = day2_morning + timedelta(hours=1, minutes=30)
+        day2_bulk_start = day2_morning + timedelta(hours=2)
+        day2_fold1 = day2_bulk_start + timedelta(minutes=30)
+        day2_fold2 = day2_bulk_start + timedelta(hours=1)
+        day2_fold3 = day2_bulk_start + timedelta(hours=1, minutes=30)
+        day2_bulk_end = day2_bulk_start + timedelta(hours=4)
+        day2_shape = day2_bulk_end
+        day2_final_proof = day2_shape + timedelta(minutes=30)
+        day2_bake = day2_final_proof + timedelta(hours=2)
         
-        salt = starter_for_bread * self.salt_ratio
+        self.schedule = [
+            {
+                'day': 'Day 1',
+                'time': day1_morning.strftime("%I:%M %p"),
+                'task': 'Feed Starter',
+                'details': f'Mix {ingredients["feeding"]["existing_starter"]}g existing starter + {ingredients["feeding"]["flour"]}g {self.flour_type} + {ingredients["feeding"]["water"]}g water',
+                'notes': 'Let starter double in size (6-12 hours)'
+            },
+            {
+                'day': 'Day 1',
+                'time': day1_evening.strftime("%I:%M %p"),
+                'task': 'Check Starter',
+                'details': 'Starter should be doubled and bubbly',
+                'notes': 'If not ready, wait longer or feed again'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_morning.strftime("%I:%M %p"),
+                'task': 'Float Test',
+                'details': 'Drop small amount of starter in water - should float',
+                'notes': 'If sinks, starter needs more time'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_autolyse.strftime("%I:%M %p"),
+                'task': 'Autolyse',
+                'details': f'Mix {ingredients["dough"]["flour"]}g flour + {ingredients["dough"]["water"]}g water only',
+                'notes': 'No starter or salt yet. Cover and rest 30 minutes'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_mix.strftime("%I:%M %p"),
+                'task': 'Final Mix',
+                'details': f'Add {self.starter_amount * 11}g active starter + {ingredients["dough"]["salt"]}g salt',
+                'notes': 'Mix by hand until well combined'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_bulk_start.strftime("%I:%M %p"),
+                'task': 'Bulk Fermentation Begins',
+                'details': 'Cover dough and start bulk fermentation',
+                'notes': 'Dough should increase by 50-70%'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_fold1.strftime("%I:%M %p"),
+                'task': 'First Fold',
+                'details': 'Perform set of stretch and folds',
+                'notes': '4 folds: North, South, East, West'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_fold2.strftime("%I:%M %p"),
+                'task': 'Second Fold',
+                'details': 'Perform set of stretch and folds',
+                'notes': 'Dough should feel stronger'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_fold3.strftime("%I:%M %p"),
+                'task': 'Third Fold',
+                'details': 'Perform final set of stretch and folds',
+                'notes': 'Last folds - let dough rest undisturbed after this'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_bulk_end.strftime("%I:%M %p"),
+                'task': 'End Bulk Fermentation',
+                'details': 'Check if dough has increased by 50-70%',
+                'notes': 'Should be jiggly and have visible air bubbles'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_shape.strftime("%I:%M %p"),
+                'task': 'Pre-shape',
+                'details': 'Turn out dough and pre-shape into round',
+                'notes': 'Rest 20-30 minutes before final shaping'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_final_proof.strftime("%I:%M %p"),
+                'task': 'Final Shape & Proof',
+                'details': 'Shape into boule or batard, place in banneton',
+                'notes': 'Proof 1.5-2 hours at room temp or overnight in fridge'
+            },
+            {
+                'day': 'Day 2',
+                'time': day2_bake.strftime("%I:%M %p"),
+                'task': 'Preheat & Bake',
+                'details': 'Preheat Dutch oven to 450°F (230°C)',
+                'notes': 'Score, bake covered 20 min, uncovered 20-25 min'
+            }
+        ]
         
-        total_flour = starter_feeding['flour_to_add'] + main_flour
-        total_water = starter_feeding['water_to_add'] + main_water
-        
-        return {
-            'feeding_ratio': feeding_ratio,
-            'starter_feeding': starter_feeding,
-            'active_starter_amount': round(active_starter_amount, 1),
-            'starter_for_bread': round(starter_for_bread, 1),
-            'main_flour': round(main_flour, 1),
-            'main_water': round(main_water, 1),
-            'salt': round(salt, 1),
-            'total_flour': round(total_flour, 1),
-            'total_water': round(total_water, 1),
-            'final_hydration': round((total_water / total_flour) * 100, 1)
-        }
-    
-    def calculate_timeline(self, start_time_str, feeding_ratio, start_date=None):
-        """Calculate complete timeline based on feeding ratio"""
-        if start_date is None:
-            start_date = datetime.now().date()
-        
-        start_time = self.parse_time(start_time_str)
-        start_datetime = datetime.combine(start_date, start_time)
-        
-        # Get peak time based on feeding ratio
-        peak_hours = self.feeding_ratios[feeding_ratio]['peak_hours']
-        
-        timeline = {}
-        timeline['feed_starter'] = start_datetime
-        timeline['peak_ready'] = start_datetime + timedelta(hours=peak_hours)
-        timeline['mix_dough'] = timeline['peak_ready']
-        timeline['autolyse_end'] = timeline['mix_dough'] + timedelta(minutes=30)
-        timeline['fold_1'] = timeline['autolyse_end']
-        timeline['fold_2'] = timeline['fold_1'] + timedelta(minutes=30)
-        timeline['fold_3'] = timeline['fold_2'] + timedelta(minutes=30)
-        timeline['fold_4'] = timeline['fold_3'] + timedelta(minutes=30)
-        timeline['bulk_fermentation_start'] = timeline['fold_4']
-        
-        # Bulk fermentation timing varies by temperature and starter amount
-        # For overnight method, typically 8-12 hours
-        bulk_hours = 10  # Default, could be made adjustable
-        timeline['bulk_fermentation_end'] = timeline['bulk_fermentation_start'] + timedelta(hours=bulk_hours)
-        
-        timeline['pre_shape'] = timeline['bulk_fermentation_end']
-        timeline['bench_rest_end'] = timeline['pre_shape'] + timedelta(minutes=30)
-        timeline['final_shape'] = timeline['bench_rest_end']
-        timeline['cold_proof_start'] = timeline['final_shape']
-        
-        # Cold proof for 8+ hours
-        timeline['ready_to_bake'] = timeline['cold_proof_start'] + timedelta(hours=8)
-        timeline['preheat_oven'] = timeline['ready_to_bake']
-        timeline['bake'] = timeline['preheat_oven'] + timedelta(minutes=30)
-        timeline['cooling_done'] = timeline['bake'] + timedelta(hours=2)
-        
-        return timeline
-    
-    def get_feeding_ratios(self):
-        """Return available feeding ratios for frontend"""
-        return {k: v['description'] for k, v in self.feeding_ratios.items()}
-    
-    def generate_schedule_data(self, existing_starter_amount, start_time_str, feeding_ratio='1:5:5', 
-                             hydration=70, flour_type="bread flour", notes=None):
-        """Generate schedule data for web display"""
-        ingredients = self.calculate_ingredients(existing_starter_amount, feeding_ratio, hydration)
-        timeline = self.calculate_timeline(start_time_str, feeding_ratio)
-        
-        # Group timeline by days
-        days = {}
-        for step, dt in timeline.items():
-            date_key = dt.date()
-            if date_key not in days:
-                days[date_key] = []
-            days[date_key].append((step, dt))
-        
-        # Sort days and steps
-        sorted_days = []
-        for date_key in sorted(days.keys()):
-            day_steps = sorted(days[date_key], key=lambda x: x[1])
-            sorted_days.append((date_key, day_steps))
-        
-        return {
-            'ingredients': ingredients,
-            'timeline': timeline,
-            'days': sorted_days,
-            'flour_type': flour_type,
-            'notes': notes,
-            'feeding_ratio': feeding_ratio
-        }
-
-# Initialize planner
-planner = SourdoughPlanner()
-
-# Helper functions for formatting
-def format_step_name(step):
-    """Format step names for display"""
-    step_names = {
-        'feed_starter': 'Feed Starter',
-        'peak_ready': 'Starter at Peak',
-        'mix_dough': 'Mix Dough',
-        'autolyse_end': 'End Autolyse',
-        'fold_1': 'Stretch & Fold #1',
-        'fold_2': 'Stretch & Fold #2', 
-        'fold_3': 'Stretch & Fold #3',
-        'fold_4': 'Stretch & Fold #4',
-        'bulk_fermentation_start': 'Begin Bulk Fermentation',
-        'bulk_fermentation_end': 'End Bulk Fermentation',
-        'pre_shape': 'Pre-shape Dough',
-        'bench_rest_end': 'End Bench Rest',
-        'final_shape': 'Final Shape',
-        'cold_proof_start': 'Start Cold Proof',
-        'ready_to_bake': 'Ready to Bake',
-        'preheat_oven': 'Preheat Oven',
-        'bake': 'Bake Bread',
-        'cooling_done': 'Cooling Complete'
-    }
-    return step_names.get(step, step.replace('_', ' ').title())
-
-def get_step_description(step):
-    """Get description for each step"""
-    descriptions = {
-        'feed_starter': 'Add flour and water to your existing starter',
-        'peak_ready': 'Starter should be bubbly and at peak activity',
-        'mix_dough': 'Mix water, active starter, salt, then add flour',
-        'autolyse_end': 'Let mixed dough rest covered',
-        'fold_1': 'First set of stretch and folds',
-        'fold_2': 'Second set of stretch and folds',
-        'fold_3': 'Third set of stretch and folds', 
-        'fold_4': 'Final set of stretch and folds',
-        'bulk_fermentation_start': 'Cover and let ferment overnight',
-        'bulk_fermentation_end': 'Dough should be doubled or more',
-        'pre_shape': 'Shape into loose ball, let rest',
-        'bench_rest_end': 'Dough has relaxed and spread slightly',
-        'final_shape': 'Shape into final form and place in banneton',
-        'cold_proof_start': 'Place in fridge for cold retard',
-        'ready_to_bake': 'Remove from fridge, preheat Dutch oven',
-        'preheat_oven': 'Heat oven and Dutch oven to 450°F',
-        'bake': 'Score and bake: 30 min covered, 15 min uncovered',
-        'cooling_done': 'Bread is cool enough to slice'
-    }
-    return descriptions.get(step, '')
+        return self.schedule
 
 @app.route('/')
 def index():
-    # Pass feeding ratios to template
-    feeding_ratios = planner.get_feeding_ratios()
-    return render_template('index.html', feeding_ratios=feeding_ratios)
+    return render_template('index.html')
 
 @app.route('/generate', methods=['POST'])
 def generate_schedule():
     try:
-        data = request.json
-        existing_starter_amount = float(data.get('existing_starter_amount', 50))  # Changed from active_starter_amount
+        data = request.get_json()
+        
+        starter_amount = int(data.get('starter_amount', 100))
         start_time = data.get('start_time', '8:00 AM')
-        feeding_ratio = data.get('feeding_ratio', '1:5:5')
         hydration = int(data.get('hydration', 70))
         flour_type = data.get('flour_type', 'bread flour')
-        notes = data.get('notes', '')
+        custom_notes = data.get('custom_notes', '')
         
-        # Validate feeding ratio
-        if feeding_ratio not in planner.feeding_ratios:
-            return jsonify({'success': False, 'error': 'Invalid feeding ratio'}), 400
+        planner = SourdoughPlanner(starter_amount, start_time, hydration, flour_type)
+        schedule = planner.generate_schedule()
+        ingredients = planner.calculate_ingredients()
         
-        schedule_data = planner.generate_schedule_data(
-            existing_starter_amount, start_time, feeding_ratio, hydration, flour_type, notes
-        )
-        
-        # Format data for JSON response
-        formatted_data = {
+        return jsonify({
             'success': True,
-            'ingredients': schedule_data['ingredients'],
-            'timeline': {k: v.isoformat() for k, v in schedule_data['timeline'].items()},
-            'days': [
-                {
-                    'date': date.strftime('%A, %B %d'),
-                    'steps': [
-                        {
-                            'step': format_step_name(step),
-                            'time': dt.strftime('%I:%M %p').lstrip('0'),
-                            'datetime': dt.isoformat(),
-                            'description': get_step_description(step)
-                        }
-                        for step, dt in day_steps
-                    ]
-                }
-                for date, day_steps in schedule_data['days']
-            ],
-            'flour_type': flour_type,
-            'notes': notes,
-            'feeding_ratio': feeding_ratio,
-            'feeding_ratio_info': planner.feeding_ratios[feeding_ratio]
-        }
-        
-        return jsonify(formatted_data)
+            'schedule': schedule,
+            'ingredients': ingredients,
+            'custom_notes': custom_notes
+        })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
 
-@app.route('/ratios')
-def get_ratios():
-    """API endpoint to get available feeding ratios"""
-    return jsonify(planner.get_feeding_ratios())
-
-@app.route('/health')
-def health_check():
-    return jsonify({'status': 'healthy'})
-
+# CRITICAL: This configuration is needed for web deployment
 if __name__ == '__main__':
+    # For local development
     port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(debug=True, host='0.0.0.0', port=port)
+else:
+    # For production deployment (Render, Heroku, etc.)
+    # This ensures the app runs correctly when imported by gunicorn
+    pass
