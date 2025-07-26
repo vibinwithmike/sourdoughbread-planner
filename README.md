@@ -3,7 +3,7 @@
 A web-based tool for generating detailed sourdough baking schedules with precise timing and ingredient calculations.
 
 ## Features
-- 📊 Automatic ingredient scaling based on starter amount
+- 📊 Automatic ingredient scaling based on starter amount and feeding ratio
 - ⏰ Precise multi-day timeline generation
 - 📱 Mobile-responsive design
 - 🎯 Professional sourdough techniques
