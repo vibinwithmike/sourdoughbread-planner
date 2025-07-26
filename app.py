@@ -58,7 +58,7 @@ class SourdoughPlanner:
         self.main_water_ratio = 2.71  # 325g water / 120g starter  
         self.salt_ratio = 0.083       # 10g salt / 120g starter
     
-    def calculate_exact_starter_feeding(self, required_starter_amount, feeding_ratio):
+        def calculate_exact_starter_feeding(self, required_starter_amount, feeding_ratio):
         """Calculate exact feeding amounts with no waste"""
         ratio_info = self.feeding_ratios[feeding_ratio]
         
