@@ -5,7 +5,6 @@ A web-based tool for generating detailed sourdough baking schedules with precise
 ## Features
 - 📊 Automatic ingredient scaling based on starter amount
 - ⏰ Precise multi-day timeline generation
-- 🔧 Customizable hydration and flour types
 - 📱 Mobile-responsive design
 - 🎯 Professional sourdough techniques
 
