@@ -16,5 +16,5 @@ A web-based tool for generating detailed sourdough baking schedules with precise
 ### Setup
 1. Clone the repository:
    ```bash
-   git clone https://github.com/vibinwithmike/sourdough-planner.git
+   git clone https://github.com/vibinwithmike/sourdoughbread-planner.git
    cd sourdough-planner
