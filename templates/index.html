@@ -142,8 +142,8 @@
             
             <div class="form-group">
                 <label for="start_time">Starter Feeding Time:</label>
-                <input type="text" id="start_time" name="start_time" value="{{ current_time }}" placeholder="e.g., 8:00 AM">
-                <div class="current-time-note">Default is current time ({{ current_time }})</div>
+                <input type="text" id="start_time" name="start_time" value="" placeholder="e.g., 8:00 AM">
+                <div class="current-time-note">Will auto-fill with your current local time</div>
             </div>
             
             <div class="form-group">
@@ -201,8 +201,29 @@
             infoDiv.textContent = ratioDescriptions[selectedRatio] || 'Select a feeding ratio';
         });
 
-        // Initialize ratio info
+        // Initialize ratio info and set current time
         document.addEventListener('DOMContentLoaded', function() {
+            // Set current local time
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = now.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            
+            // Convert to 12-hour format
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0 should be 12
+            
+            // Format minutes with leading zero if needed
+            const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+            
+            // Set the current time in the input field
+            const currentTime = `${hours}:${minutesStr} ${ampm}`;
+            document.getElementById('start_time').value = currentTime;
+            
+            // Update the note to show the current time
+            document.querySelector('.current-time-note').textContent = `Current local time: ${currentTime}`;
+            
+            // Initialize ratio info
             const initialRatio = document.getElementById('feeding_ratio').value;
             const infoDiv = document.getElementById('ratioInfo');
             infoDiv.textContent = ratioDescriptions[initialRatio] || 'Select a feeding ratio';
@@ -221,6 +242,8 @@
                 notes: formData.get('notes')
             };
             
+            console.log('Sending data:', data); // Debug log
+            
             try {
                 const response = await fetch('/generate', {
                     method: 'POST',
@@ -230,7 +253,20 @@
                     body: JSON.stringify(data)
                 });
                 
+                console.log('Response status:', response.status); // Debug log
+                console.log('Response headers:', response.headers.get('content-type')); // Debug log
+                
+                // Check if response is actually JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const textResponse = await response.text();
+                    console.error('Non-JSON response:', textResponse);
+                    alert('Server error: Received non-JSON response. Check console for details.');
+                    return;
+                }
+                
                 const result = await response.json();
+                console.log('Parsed result:', result); // Debug log
                 
                 if (result.success) {
                     displayResults(result);
@@ -238,6 +274,7 @@
                     alert('Error: ' + result.error);
                 }
             } catch (error) {
+                console.error('Fetch error:', error);
                 alert('Error generating schedule: ' + error.message);
             }
         });
