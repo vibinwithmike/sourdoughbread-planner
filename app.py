@@ -274,8 +274,7 @@ def index():
     try:
         planner = SourdoughPlanner()
         feeding_ratios = planner.get_feeding_ratios()
-        current_time = get_current_time_12hr()
-        return render_template('index.html', feeding_ratios=feeding_ratios, current_time=current_time)
+        return render_template('index.html', feeding_ratios=feeding_ratios)
     except Exception as e:
         return f"Error: {str(e)}", 500
 
@@ -316,7 +315,7 @@ def generate_schedule():
         
         print(f"Parsed data: {data}")
         
-        existing_starter_amount = float(data.get('existing_starter_amount', 50))
+        existing_starter_amount = float(data.get('existing_starter_amount', 15))
         start_time = data.get('start_time', '8:00 AM')
         feeding_ratio = data.get('feeding_ratio', '1:5:5')
         hydration = int(data.get('hydration', 70))
@@ -367,6 +366,30 @@ def generate_schedule():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/test-generate')
+def test_generate():
+    """Test the generate functionality with sample data"""
+    try:
+        planner = SourdoughPlanner()
+        schedule_data = planner.generate_schedule_data(
+            existing_starter_amount=15,
+            start_time_str="8:00 AM", 
+            feeding_ratio="1:4:4",
+            hydration=70,
+            flour_type="bread flour",
+            notes="Test generation"
+        )
+        return jsonify({
+            'success': True,
+            'message': 'Test successful',
+            'data': {
+                'ingredients': schedule_data['ingredients'],
+                'feeding_ratio': schedule_data['feeding_ratio']
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e), 'traceback': str(e.__traceback__)})
 
 @app.route('/ratios')
 def get_ratios():
