@@ -270,7 +270,8 @@ def index():
     try:
         planner = SourdoughPlanner()
         feeding_ratios = planner.get_feeding_ratios()
-        return render_template('index.html', feeding_ratios=feeding_ratios)
+        current_time = get_current_time_12hr()
+        return render_template('index.html', feeding_ratios=feeding_ratios, current_time=current_time)
     except Exception as e:
         return f"Error: {str(e)}", 500
 
@@ -354,5 +355,7 @@ def get_ratios():
 
 # CRITICAL: This is what gunicorn looks for
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5001))
+    # Use PORT environment variable provided by Render
+    port = int(os.environ.get('PORT', 10000))
+    # IMPORTANT: Bind to 0.0.0.0, not localhost
     app.run(host='0.0.0.0', port=port, debug=False)
