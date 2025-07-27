@@ -190,7 +190,7 @@ class SourdoughPlanner:
         
         return timeline
 
-    def generate_schedule_data(self, existing_starter_amount, start_time_str, feeding_ratio='1:5:5', 
+    def generate_schedule_data(self, existing_starter_amount, start_time_str, feeding_ratio='1:4:4', 
                              hydration=70, flour_type="bread flour", notes=None):
         """Generate schedule data for web display"""
         ingredients = self.calculate_ingredients(existing_starter_amount, feeding_ratio, hydration)
@@ -317,7 +317,7 @@ def generate_schedule():
         
         existing_starter_amount = float(data.get('existing_starter_amount', 15))
         start_time = data.get('start_time', '8:00 AM')
-        feeding_ratio = data.get('feeding_ratio', '1:5:5')
+        feeding_ratio = data.get('feeding_ratio', '1:4:4')
         hydration = int(data.get('hydration', 70))
         flour_type = data.get('flour_type', 'bread flour')
         notes = data.get('notes', '')
