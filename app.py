@@ -301,8 +301,21 @@ def debug():
 @app.route('/generate', methods=['POST'])
 def generate_schedule():
     try:
+        # Debug logging
+        print(f"Generate route called with method: {request.method}")
+        print(f"Content-Type: {request.content_type}")
+        print(f"Request data: {request.get_data()}")
+        
         planner = SourdoughPlanner()
-        data = request.json
+        
+        # Handle both JSON and form data
+        if request.is_json:
+            data = request.json
+        else:
+            data = request.form.to_dict()
+        
+        print(f"Parsed data: {data}")
+        
         existing_starter_amount = float(data.get('existing_starter_amount', 50))
         start_time = data.get('start_time', '8:00 AM')
         feeding_ratio = data.get('feeding_ratio', '1:5:5')
@@ -310,9 +323,11 @@ def generate_schedule():
         flour_type = data.get('flour_type', 'bread flour')
         notes = data.get('notes', '')
         
+        print(f"Processing: starter={existing_starter_amount}, ratio={feeding_ratio}, time={start_time}")
+        
         # Validate feeding ratio
         if feeding_ratio not in planner.feeding_ratios:
-            return jsonify({'success': False, 'error': 'Invalid feeding ratio'}), 400
+            return jsonify({'success': False, 'error': f'Invalid feeding ratio: {feeding_ratio}'}), 400
         
         schedule_data = planner.generate_schedule_data(
             existing_starter_amount, start_time, feeding_ratio, hydration, flour_type, notes
@@ -344,10 +359,14 @@ def generate_schedule():
             'feeding_ratio_info': planner.feeding_ratios[feeding_ratio]
         }
         
+        print("Successfully generated schedule data")
         return jsonify(formatted_data)
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
+        print(f"Error in generate_schedule: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/ratios')
 def get_ratios():
