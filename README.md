@@ -9,7 +9,7 @@ A web-based tool for generating detailed sourdough baking schedules with precise
 - 🎯 Professional sourdough techniques
 
 ## Live Demo
-[Add your deployment URL here]
+https://sourdoughbread-planner.onrender.com/
 
 ## Local Development
 
