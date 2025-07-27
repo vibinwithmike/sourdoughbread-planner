@@ -6,6 +6,10 @@ import os
 # Create Flask app
 app = Flask(__name__)
 
+def get_current_time_12hr():
+    """Get current time in 12-hour format (HH:MM AM/PM)"""
+    return datetime.now().strftime('%I:%M %p').lstrip('0')
+
 class SourdoughPlanner:
     def __init__(self):
         # Define feeding ratios and their characteristics
@@ -357,5 +361,6 @@ def get_ratios():
 if __name__ == '__main__':
     # Use PORT environment variable provided by Render
     port = int(os.environ.get('PORT', 10000))
+    print(f"Starting Flask app on port {port}")
     # IMPORTANT: Bind to 0.0.0.0, not localhost
     app.run(host='0.0.0.0', port=port, debug=False)
